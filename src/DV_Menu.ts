@@ -1,29 +1,17 @@
-import { Cfg, openSheetById, getOrCreateSheet, formatHeader } from "./DV_Core";
-import { run, openSummary } from "./DV_Engine";
-import { exportXLSX, exportPDF, exportDashboard } from "./DV_Exports";
-export function onOpenMenu(_cfg: Cfg) {
+/**
+ * DV_Menu.ts — menú de UI en Sheets.
+ */
+import { runFull, runDelta, openSummary, exportXLSX, exportPDF } from "./DV_Exports";
+
+export function onOpen(): void {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu("DriveVision")
-    .addItem("🔧 Setup inicial", "setupAll")
+    .addItem("🔄 Reconstrucción completa", "runFull")
+    .addItem("⚡ Actualización rápida", "runDelta")
     .addSeparator()
-    .addItem("🧹 FULL", "runFull")
-    .addItem("🔄 DELTA", "runDelta")
+    .addItem("📊 Abrir Dashboard", "openSummary")
     .addSeparator()
-    .addItem("📊 Resumen", "openSummary")
-    .addItem("📈 Dashboard", "exportDashboard")
-    .addSeparator()
-    .addItem("⬇️ Export XLSX", "exportXLSX")
-    .addItem("🖨️ Export PDF", "exportPDF")
+    .addItem("⬇️ Exportar a XLSX", "exportXLSX")
+    .addItem("🧾 Exportar Dashboard a PDF", "exportPDF")
     .addToUi();
 }
-export function setupAll(cfg: Cfg) {
-  const ss = openSheetById(cfg.SHEET_ID);
-  const inv = getOrCreateSheet(ss, "MT_INDICE_INVENTARIO_MENAJE_2025");
-  const sum = getOrCreateSheet(ss, "Resumen Automático");
-  const dash = getOrCreateSheet(ss, "Dashboard de conteos");
-  formatHeader(inv); formatHeader(sum); formatHeader(dash);
-  ss.toast("Setup OK", "DriveVision", 5);
-}
-declare const global: any;
-global.setupAll = (cfg: Cfg)=>setupAll(cfg);
-
