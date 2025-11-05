@@ -23,20 +23,47 @@ jobs:
         with:
           node-version: "20"
 
+      # Install project deps (includes TypeScript + @types)
       - name: Install deps
-        run: npm ci
+        run: npm ci || npm install
 
+      # Clasp (global) + auth lib (local for node -e)
       - name: Install Clasp + auth lib
         run: npm i -g @google/clasp && npm i google-auth-library
 
+      # Build TypeScript -> dist/
+      - name: Build TypeScript
+        run: npx tsc
+
+      # Ensure dist manifest exists before deploying
+      - name: Verify dist
+        run: |
+          test -f dist/appsscript.json || (echo "❌ dist/appsscript.json missing" && exit 1)
+          echo "✅ dist ready"
+          ls -la dist
+
+      # Create the service account key file securely at runtime
       - name: Write service account creds
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
           test -n "$GCP_SA_KEY" || (echo "❌ GCP_SA_KEY is empty"; exit 1)
-          echo "$GCP_SA_KEY" > sa.json
-          echo "✅ sa.json created"
+          # Write raw JSON (multiline-safe) into sa.json
+          python3 - <<'PY'
+          import os, sys, json
+          val = os.environ.get('GCP_SA_KEY','').strip()
+          if not val:
+              print("❌ Secret GCP_SA_KEY is empty."); sys.exit(1)
+          try:
+              data = json.loads(val)
+          except Exception as e:
+              print("❌ Invalid JSON in GCP_SA_KEY:", e); sys.exit(1)
+          open('sa.json','w',encoding='utf-8').write(json.dumps(data))
+          print("✅ sa.json created")
+          PY
+          test -s sa.json || (echo "❌ sa.json is empty" && exit 1)
 
+      # .clasp.json bound to your Apps Script Library (rootDir=dist)
       - name: Write .clasp.json
         env:
           SCRIPT_ID_LIB: ${{ secrets.SCRIPT_ID_LIB }}
@@ -47,7 +74,7 @@ jobs:
           EOF
           echo "✅ .clasp.json written"
 
-      # Create a temporary Clasp token from the service account and store it in ~/.clasprc.json
+      # Mint an access token from the Service Account and store it as a Clasp token
       - name: Create Clasp token from SA
         run: |
           node - <<'NODE'
@@ -73,7 +100,6 @@ jobs:
                 access_token: access,
                 scope: scopes.join(' '),
                 token_type: 'Bearer',
-                // set a near-future expiry; token is short-lived anyway
                 expiry_date: Date.now() + 45 * 60 * 1000
               },
               oauth2ClientSettings: {
@@ -90,9 +116,11 @@ jobs:
           })().catch(e => { console.error(e); process.exit(1); });
           NODE
 
+      # Push code in dist/ to the Apps Script Library
       - name: Push code to Apps Script
         run: clasp push -f --rootDir dist
 
+      # Optional: create Apps Script version when pushing a git tag v*
       - name: Make Version on Tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -100,6 +128,7 @@ jobs:
           echo "Creating version for tag ${v}"
           clasp version "Release ${v}"
 
+      # Always clean up secrets from the runner
       - name: Cleanup credentials
         if: always()
         run: |
