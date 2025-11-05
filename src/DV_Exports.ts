@@ -1,56 +1,132 @@
-/**
- * DV_Exports.ts — puente entre menú/botones y Engine.
- * Mantén aquí funciones cortas que delegan.
- */
-import { toast, openSheetById } from "./DV_Core";
-import { run as runEngine } from "./DV_Engine";
-import type { Config } from "./types";
+// === DV_Exports.ts ===============================================
+// Exporta el libro a XLSX y el Dashboard a PDF dentro de 01_WORK/Export
+// Depende de funciones utilitarias en DV_Core y del servicio avanzado Drive (v2) habilitado.
 
-// ⚙️ Config por defecto (ajusta SHEET_ID a tu doc real)
-export const CONFIG: Readonly<Config> = Object.freeze({
-  ROOT_PATH: "MT_DOCS_2025/MT_INVENTARIO_MENAJE_2025",
-  SHEET_ID: "1AGDLWJzeNFaTEO54H2mmLPMH0LN1raIBbz7_HNzf29U"
-});
+import {
+  openSheetById,
+  findFolderByPath,
+  nowISO,
+  toast,
+} from "./DV_Core";
 
-export function runFull(): void {
-  runEngine(CONFIG, "FULL");
-  toast("✅ Reconstrucción completa terminada");
+// ----- Config & Consts -------------------------------------------
+export interface Config {
+  SHEET_ID: string;
+  ROOT_PATH: string; // p.ej. "MT_DOCS_2025/MT_INVENTARIO_MENAJE_2025"
 }
 
-export function runDelta(): void {
-  runEngine(CONFIG, "DELTA");
-  toast("✅ Actualización rápida ejecutada");
-}
+const EXPORT_SUBPATH = "01_WORK/Export";
+const DASHBOARD_SHEET = "Dashboard de conteos";
 
-export function openSummary(): void {
-  const ss = openSheetById(CONFIG.SHEET_ID);
-  const sh = ss.getSheetByName("Dashboard de conteos") || ss.getSheetByName("Resumen Automático");
-  if (sh) {
-    ss.setActiveSheet(sh);
-    toast("📊 Dashboard listo");
-  } else {
-    toast("ℹ️ No existe hoja de Dashboard aún");
+// MIME strings (compatibles con TS)
+const XLSX_MIME =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const PDF_MIME = "application/pdf";
+
+// ----- Helpers ----------------------------------------------------
+function getExportFolder_(cfg: Config): GoogleAppsScript.Drive.Folder {
+  const full = `${cfg.ROOT_PATH}/${EXPORT_SUBPATH}`;
+  const f = findFolderByPath(full);
+  if (!f) {
+    throw new Error(
+      `No existe la carpeta de exportación: ${full}.\n` +
+      `Crea la estructura o corrige ROOT_PATH.`
+    );
   }
+  return f;
 }
 
-export function exportXLSX(): void {
-  const blob = SpreadsheetApp.openById(CONFIG.SHEET_ID).getBlob();
-  const xlsx = Utilities.newBlob(blob.getBytes(), MimeType.MICROSOFT_EXCEL, "MT_Conteos.xlsx");
-  DriveApp.getRootFolder().createFile(xlsx);
-  toast("⬇️ Exportado XLSX en tu Drive");
+function sanitizedDate_(): string {
+  // 2025-11-05_16-45-09
+  return nowISO().replace(/:/g, "-").replace("T", "_");
 }
 
-export function exportPDF(): void {
-  const id = CONFIG.SHEET_ID;
-  const ss = SpreadsheetApp.openById(id);
-  const sh = ss.getSheetByName("Dashboard de conteos");
-  if (!sh) { toast("⚠️ No hay 'Dashboard de conteos'"); return; }
-  const gid = sh.getSheetId();
-  const url = `https://docs.google.com/spreadsheets/d/${id}/export` +
-    `?format=pdf&portrait=false&size=A4&fitw=true&gridlines=false&gid=${gid}`;
+// ----- XLSX (libro completo) -------------------------------------
+export function exportWorkbookXLSX(cfg: Config): string {
+  const folder = getExportFolder_(cfg);
+
+  // Drive Advanced Service v2 (Services > Drive activado en tu proyecto Apps Script).
+  // Exporta el spreadsheet entero a .xlsx
+  // @ts-ignore  Drive v2 está disponible en Apps Script
+  const blob: GoogleAppsScript.Base.Blob = Drive.Files.export(
+    cfg.SHEET_ID,
+    XLSX_MIME
+  );
+
+  const name = `MT_Conteos_${sanitizedDate_()}.xlsx`;
+  const xlsxBlob = Utilities.newBlob(blob.getBytes(), XLSX_MIME, name);
+  const file = folder.createFile(xlsxBlob);
+
+  toast(`📤 Exportado XLSX: ${name}`);
+  return file.getUrl();
+}
+
+// ----- PDF (solo hoja Dashboard) ---------------------------------
+export function exportDashboardPDF(cfg: Config): string {
+  const ss = openSheetById(cfg.SHEET_ID);
+  const dash = ss.getSheetByName(DASHBOARD_SHEET);
+  if (!dash) {
+    throw new Error(
+      `No se encontró la hoja "${DASHBOARD_SHEET}" en el spreadsheet.`
+    );
+  }
+
+  const folder = getExportFolder_(cfg);
+  const gid = dash.getSheetId();
+
+  // Parámetros de exportación (ajústalos a tu gusto)
+  const params = {
+    format: "pdf",
+    portrait: "true",
+    size: "A4",
+    fitw: "true",        // Ajustar al ancho
+    top_margin: "0.50",
+    bottom_margin: "0.50",
+    left_margin: "0.50",
+    right_margin: "0.50",
+    sheetnames: "false",
+    printtitle: "false",
+    pagenumbers: "false",
+    gridlines: "false",
+    fzr: "false",
+    gid: `${gid}`,
+  };
+
+  const qs = Object.keys(params)
+    .map((k) => `${k}=${encodeURIComponent((params as any)[k])}`)
+    .join("&");
+
+  const url = `https://docs.google.com/spreadsheets/d/${cfg.SHEET_ID}/export?${qs}`;
+
   const token = ScriptApp.getOAuthToken();
-  const resp = UrlFetchApp.fetch(url, { headers: { Authorization: `Bearer ${token}` }, muteHttpExceptions: true });
-  const pdf = Utilities.newBlob(resp.getContent(), MimeType.PDF, "Dashboard.pdf");
-  DriveApp.getRootFolder().createFile(pdf);
-  toast("🧾 PDF exportado en tu Drive");
+  const resp = UrlFetchApp.fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    muteHttpExceptions: true,
+  });
+
+  const code = resp.getResponseCode();
+  if (code !== 200) {
+    throw new Error(
+      `Fallo exportando PDF (HTTP ${code}): ${resp.getContentText().slice(0, 200)}`
+    );
+  }
+
+  const name = `Dashboard_${sanitizedDate_()}.pdf`;
+  const pdfBlob = Utilities.newBlob(resp.getContent(), PDF_MIME, name);
+  const file = folder.createFile(pdfBlob);
+
+  toast(`📤 Exportado PDF: ${name}`);
+  return file.getUrl();
+}
+
+// ----- Orquestador de exportaciones -------------------------------
+/**
+ * Exporta XLSX del libro y PDF del Dashboard.
+ * Devuelve un pequeño resumen con las URLs creadas.
+ */
+export function exportAll(cfg: Config): { xlsxUrl: string; pdfUrl: string } {
+  const x = exportWorkbookXLSX(cfg);
+  const p = exportDashboardPDF(cfg);
+  toast("✅ Exportaciones completadas");
+  return { xlsxUrl: x, pdfUrl: p };
 }
