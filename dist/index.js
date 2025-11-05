@@ -1,53 +1,42 @@
-/* global this */
-
 /**
- * Public surface of the DriveVision library.
- * It adapts to the names you already use inside DV_* files,
- * so consumers can always call: MTDriveVisionGemini.Engine.runFull(), etc.
+ * index.js — pegamento del namespace global.
+ * Expone MTDriveVisionGemini y funciones globales para el menú.
  */
-var MTDriveVisionGemini = (function (g) {
-  function notFound(path) {
-    return function () {
-      throw new Error("DriveVision library: missing function -> " + path);
-    };
+
+import * as Core    from "./DV_Core";
+import * as Engine  from "./DV_Engine";
+import * as Exports from "./DV_Exports";
+import * as Gemini  from "./DV_Gemini";
+import * as Menu    from "./DV_Menu";
+
+const NS = {
+  Core,
+  Engine,
+  Exports,
+  Gemini,
+  Menu,
+  version: "DriveVision-Gemini 2.0 (stable)"
+};
+
+// expone en entorno Apps Script
+globalThis.MTDriveVisionGemini = NS;
+
+// === Wrappers globales para que el menú y los botones funcionen ===
+function onOpen()     { return NS.Menu.onOpen(); }
+function runFull()    { return NS.Exports.runFull(); }
+function runDelta()   { return NS.Exports.runDelta(); }
+function openSummary(){ return NS.Exports.openSummary(); }
+function exportXLSX() { return NS.Exports.exportXLSX(); }
+function exportPDF()  { return NS.Exports.exportPDF(); }
+
+// también útiles desde el editor para probar
+function testLibraryConnection() {
+  Logger.log("Library loaded: " + (typeof globalThis.MTDriveVisionGemini !== "undefined"));
+  Logger.log("Engine module exists: " + (typeof NS.Engine !== "undefined"));
+  Logger.log("Engine.run exists: " + (typeof NS.Engine.run === "function"));
+  if (typeof NS.Engine.run === "function") {
+    Logger.log("✅ Ready to execute Engine.run(cfg, mode)");
+  } else {
+    Logger.log("❌ Engine.run not accessible");
   }
-  function pick() {
-    for (var i = 0; i < arguments.length; i++) {
-      var fn = g[arguments[i]];
-      if (typeof fn === "function") return fn;
-    }
-    return notFound([].slice.call(arguments).join(" | "));
-  }
-
-  // Engine (indexing / exports / automation)
-  var Engine = {
-    runFull:      pick("DV_runFull", "runFull", "engine_runFull"),
-    runDelta:     pick("DV_runDelta", "runDelta", "engine_runDelta"),
-    runAuto:      pick("DV_runAuto", "runAuto", "engine_runAuto"),
-    openSummary:  pick("DV_openSummary", "openSummary"),
-    exportXLSX:   pick("DV_exportXLSX", "exportXLSX"),
-    exportPDF:    pick("DV_exportPDF", "exportPDF"),
-    setupTrigger: pick("DV_setupTrigger", "setupTrigger")
-  };
-
-  // Core (settings / flags / helpers)
-  var Core = {
-    getSettings:  pick("DV_getSettings", "getSettingsForSidebar", "getSettings"),
-    setMoveFlag:  pick("DV_setMoveFlag", "setMoveFlag"),
-    getRootPath:  pick("DV_getRootPath", "getRootPath")
-  };
-
-  // Menu & UI
-  var Menu = {
-    onOpen:      pick("DV_onOpen", "onOpen", "menu_onOpen"),
-    showSidebar: pick("DV_showSidebar", "showSidebar")
-  };
-
-  // Optional: maintenance & QA (only if you expose them in DV files)
-  var QA = {
-    selfCheck: pick("DV_selfCheck", "selfCheck", "qa_selfCheck"),
-    logsDump:  pick("DV_logsDump",  "logsDump")
-  };
-
-  return { Engine: Engine, Core: Core, Menu: Menu, QA: QA };
-})(this);
+}
