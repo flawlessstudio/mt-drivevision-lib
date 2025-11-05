@@ -4,14 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "postbuild": "node -e \"fs=require('fs');fs.copyFileSync('appsscript.json','dist/appsscript.json')\"",
-    "push": "clasp push --force",
-    "deploy:head": "npm run build && npm run push",
-    "version:make": "clasp version -m \"auto: $(git rev-parse --short HEAD)\""
+    "build": "tsc",
+    "clean": "rimraf dist"
   },
   "devDependencies": {
-    "@types/google-apps-script": "^1.0.83",
-    "typescript": "^5.6.3"
+    "@types/google-apps-script": "^1.0.82",
+    "typescript": "^5.6.3",
+    "rimraf": "^6.0.1"
   }
 }
