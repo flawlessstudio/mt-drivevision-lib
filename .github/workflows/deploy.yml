@@ -1,28 +1,56 @@
 name: Deploy Apps Script Library
+
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
   create:
     tags: [ "v*" ]
-  workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+
       - name: Install deps
         run: npm ci
-      - name: Install clasp
-        run: npm i -g @google/clasp
-      - name: Auth with Service Account
+
+      - name: Install clasp & googleapis
+        run: |
+          npm i -g @google/clasp
+          npm i googleapis
+
+      - name: Authenticate with Service Account (JWT)
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
           echo "$GCP_SA_KEY" > sa.json
-          clasp login --creds sa.json
+          node <<'NODE'
+          const fs = require('fs');
+          const { google } = require('googleapis');
+          const key = require('./sa.json');
+          const scopes = [
+            'https://www.googleapis.com/auth/script.projects',
+            'https://www.googleapis.com/auth/drive',
+            'https://www.googleapis.com/auth/spreadsheets'
+          ];
+          const jwt = new google.auth.JWT(key.client_email, null, key.private_key, scopes);
+          jwt.authorize((err, token) => {
+            if (err) { console.error(err); process.exit(1); }
+            fs.writeFileSync('token.json', JSON.stringify(token));
+            console.log('✅ JWT token created');
+          });
+          NODE
+
       - name: Write .clasp.json
         env:
           SCRIPT_ID_LIB: ${{ secrets.SCRIPT_ID_LIB }}
@@ -30,9 +58,18 @@ jobs:
           cat > .clasp.json <<EOF
           { "scriptId": "${SCRIPT_ID_LIB}", "rootDir": "dist" }
           EOF
-      - name: Build & Push
-        run: npm run deploy:head
+
+      - name: Push to Apps Script (HEAD)
+        run: |
+          npx clasp login --creds sa.json
+          npx clasp push -f
+
+      - name: Deploy latest
+        run: |
+          npx clasp deploy --description "CI auto-deploy $(date -u +%FT%TZ)" || true
+
       - name: Make Version on Tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: npm run version:make
-
+        run: |
+          npx clasp version "${GITHUB_REF#refs/tags/}"
+          npx clasp deploy --description "Release ${GITHUB_REF#refs/tags/}"
