@@ -1,107 +1,79 @@
 name: Deploy Apps Script Library
+
 on:
   push:
     branches: [ "main" ]
+  create:
+    tags: [ "v*" ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      # 1️⃣ Install dependencies
-      - name: Install dependencies
-        run: |
-          npm ci || npm install
-          npm i -g @google/clasp@2
-          npm i googleapis
+      - name: Install deps
+        run: npm ci
 
-      # 2️⃣ Write the service account key securely
+      - name: Install clasp
+        run: npm i -g @google/clasp
+
+      # Create the service account key file securely at runtime
       - name: Write service account creds
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "🧩 Writing service account key..."
           python3 - <<'PY'
-          import os, json, sys
+          import os, sys
           val = os.environ.get('GCP_SA_KEY', '').strip()
           if not val:
-              print("❌ Secret GCP_SA_KEY is empty."); sys.exit(1)
-          try:
-              data = json.loads(val)
-          except Exception as e:
-              print("❌ Invalid JSON in GCP_SA_KEY:", e); sys.exit(1)
-          open('sa.json', 'w', encoding='utf-8').write(json.dumps(data))
-          print("✅ sa.json created successfully.")
+            print("❌ Secret GCP_SA_KEY is empty."); sys.exit(1)
+          # Write raw JSON (not base64) into sa.json
+          open('sa.json','w',encoding='utf-8').write(val)
+          print("✅ sa.json created.")
           PY
-          test -s sa.json || (echo "❌ sa.json is empty" && exit 1)
-          echo "sa.json size: $(wc -c < sa.json) bytes"
 
-      # 3️⃣ Validate service account permissions (JWT test)
-      - name: Validate Service Account Auth
-        run: |
-          node - <<'NODE'
-          const fs = require('fs');
-          const {google} = require('googleapis');
-          const key = JSON.parse(fs.readFileSync('sa.json','utf8'));
-          const jwt = new google.auth.JWT(
-            key.client_email, null, key.private_key,
-            [
-              'https://www.googleapis.com/auth/script.projects',
-              'https://www.googleapis.com/auth/drive',
-              'https://www.googleapis.com/auth/spreadsheets'
-            ]
-          );
-          jwt.authorize((err, token) => {
-            if (err) {
-              console.error("❌ JWT auth failed:", err.message);
-              process.exit(1);
-            } else {
-              console.log("✅ JWT authorized. Access token generated.");
-              fs.writeFileSync('token.json', JSON.stringify(token));
-            }
-          });
-          NODE
+      - name: Auth with Service Account (clasp)
+        run: clasp login --creds sa.json
 
-      # 4️⃣ Write clasp configuration dynamically
+      # Ensure .clasp.json points to your library Script ID (from repo secret)
       - name: Write .clasp.json
         env:
           SCRIPT_ID_LIB: ${{ secrets.SCRIPT_ID_LIB }}
         run: |
-          echo "🧠 Writing .clasp.json..."
+          if [ -z "$SCRIPT_ID_LIB" ]; then
+            echo "❌ Secret SCRIPT_ID_LIB is empty."; exit 1;
+          fi
           cat > .clasp.json <<EOF
           { "scriptId": "${SCRIPT_ID_LIB}", "rootDir": "dist" }
           EOF
-          cat .clasp.json
+          echo "✅ .clasp.json written."
 
-      # 5️⃣ Verify dist folder before deployment
-      - name: Verify dist folder
+      - name: Push code to Apps Script
+        run: clasp push -f --rootDir dist
+
+      - name: Make Version on Tag
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          test -f dist/appsscript.json || (echo "❌ dist/appsscript.json missing" && exit 1)
-          echo "✅ dist manifest OK"
-          ls -la dist
+          v="${GITHUB_REF_NAME}"
+          echo "Creating version for tag ${v}"
+          clasp version "Release ${v}"
 
-      # 6️⃣ Authenticate and deploy with clasp
-      - name: Deploy to Apps Script
+      # Always remove credentials & logout, even if a step fails
+      - name: Cleanup credentials
+        if: always()
         run: |
-          npx clasp login --creds sa.json
-          echo "🚀 Pushing latest code..."
-          npx clasp push -f || (echo "❌ clasp push failed" && exit 1)
-          echo "✅ Code pushed successfully!"
-
-      # 7️⃣ Optional: create version/tag
-      - name: Create new version
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "🏷 Creating new version..."
-          npx clasp version "Auto-deployed by GitHub Actions"
-          echo "✅ Version created."
-
-      # 8️⃣ Confirm completion
-      - name: Done
-        run: echo "🎉 Deployment finished successfully!"
+          rm -f sa.json || true
+          clasp logout --force || true
+          echo "🧹 Cleaned up temporary credentials."
