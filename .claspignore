@@ -1,0 +1,7 @@
+node_modules/**
+src/**
+.github/**
+**/*.md
+tsconfig.json
+package.json
+
