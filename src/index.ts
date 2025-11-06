@@ -1,7 +1,6 @@
 /**
  * =========================================================
- *  index.ts — Entry Point de MT_DRIVE_VISION
- *  Versión: v1.4_BNS (Build Estable)
+ *  index.ts — Entry Point principal
  * =========================================================
  */
 
@@ -12,7 +11,7 @@ import * as Gemini from "./DV_Gemini";
 import * as Menu from "./DV_Menu";
 
 // =========================================================
-// ENSAMBLA LOS MÓDULOS PRINCIPALES (API pública intacta)
+// ENSAMBLA LA API
 // =========================================================
 const Engine = {
   runFull:     EngineModule.run,
@@ -22,16 +21,13 @@ const Engine = {
   exportPDF:   EngineModule.exportPDF,
 };
 
-// =========================================================
-// METADATOS Y FUNCIONES AUXILIARES
-// =========================================================
-const version = "v1.4_BNS";
+const version = "v1.5_NORTHSTAR";
 function init() {
   console.info("🚀 MTDriveVisionGemini iniciado correctamente");
 }
 
 // =========================================================
-// EXPOSICIÓN GLOBAL SEGURA (Browser / Node / GAS)
+// GLOBAL EXPORT
 // =========================================================
 (globalThis as any).MTDriveVisionGemini = {
   Core,
@@ -44,7 +40,7 @@ function init() {
 };
 
 // =========================================================
-// EXPORTACIÓN MÓDULAR (ESM / CJS)
+// EXPORTACIÓN MÓDULAR
 // =========================================================
 export { Core, Engine, Exports, Gemini, Menu, version, init };
 export default (globalThis as any).MTDriveVisionGemini;
