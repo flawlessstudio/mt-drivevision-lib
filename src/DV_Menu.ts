@@ -1,6 +1,6 @@
 /**
  * =========================================================
- *  DV_Menu.ts — Control del menú principal
+ *  DV_Menu.ts — Control del menú
  * =========================================================
  */
 
@@ -13,33 +13,22 @@ import {
 } from "./DV_Exports";
 
 export function renderMenu() {
-  console.info("🧭 Renderizando menú MT_DriveVision...");
   console.table([
-    { acción: "Ejecución completa", método: "runFull()" },
-    { acción: "Ejecución incremental", método: "runDelta()" },
-    { acción: "Abrir resumen", método: "openSummary()" },
-    { acción: "Exportar XLSX", método: "exportXLSX()" },
-    { acción: "Exportar PDF", método: "exportPDF()" },
+    { Acción: "Ejecución completa", Método: "runFull()" },
+    { Acción: "Ejecución incremental", Método: "runDelta()" },
+    { Acción: "Abrir resumen", Método: "openSummary()" },
+    { Acción: "Exportar XLSX", Método: "exportXLSX()" },
+    { Acción: "Exportar PDF", Método: "exportPDF()" },
   ]);
 }
 
 export function onUserSelect(action: string) {
   switch (action) {
-    case "FULL":
-      runFull();
-      break;
-    case "DELTA":
-      runDelta();
-      break;
-    case "SUMMARY":
-      openSummary();
-      break;
-    case "XLSX":
-      exportXLSX();
-      break;
-    case "PDF":
-      exportPDF();
-      break;
+    case "FULL": runFull(); break;
+    case "DELTA": runDelta(); break;
+    case "SUMMARY": openSummary(); break;
+    case "XLSX": exportXLSX(); break;
+    case "PDF": exportPDF(); break;
     default:
       console.warn("⚠️ Acción desconocida:", action);
   }
