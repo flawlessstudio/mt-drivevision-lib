@@ -1,7 +1,7 @@
 /**
  * =========================================================
  *  index.ts — Entry Point de MT_DRIVE_VISION
- *  Versión: v1.4_BNS (estable y compatible)
+ *  Versión: v1.4_BNS (Build Estable)
  * =========================================================
  */
 
@@ -12,29 +12,26 @@ import * as Gemini from "./DV_Gemini";
 import * as Menu from "./DV_Menu";
 
 // =========================================================
-// ENSAMBLA LOS MÓDULOS PRINCIPALES (misma API pública)
+// ENSAMBLA LOS MÓDULOS PRINCIPALES (API pública intacta)
 // =========================================================
 const Engine = {
-  runFull:     EngineModule.runFull,
-  runDelta:    EngineModule.runDelta,
+  runFull:     EngineModule.run,
+  runDelta:    EngineModule.run,
   openSummary: EngineModule.openSummary,
   exportXLSX:  EngineModule.exportXLSX,
   exportPDF:   EngineModule.exportPDF,
 };
 
 // =========================================================
+// METADATOS Y FUNCIONES AUXILIARES
+// =========================================================
 const version = "v1.4_BNS";
-
 function init() {
-  try {
-    console.info("🚀 MTDriveVisionGemini iniciado correctamente");
-  } catch (error) {
-    console.warn("⚠️ Advertencia al inicializar MTDriveVisionGemini:", error);
-  }
+  console.info("🚀 MTDriveVisionGemini iniciado correctamente");
 }
 
 // =========================================================
-// EXPOSICIÓN GLOBAL SEGURA (Browser / Node / Apps Script)
+// EXPOSICIÓN GLOBAL SEGURA (Browser / Node / GAS)
 // =========================================================
 (globalThis as any).MTDriveVisionGemini = {
   Core,
@@ -47,17 +44,7 @@ function init() {
 };
 
 // =========================================================
-// EXPORTACIÓN MODULAR (para imports ESM/CJS sin globals)
+// EXPORTACIÓN MÓDULAR (ESM / CJS)
 // =========================================================
-export {
-  Core,
-  Engine,
-  Exports,
-  Gemini,
-  Menu,
-  version,
-  init,
-};
-
-// Default export apunta al mismo objeto expuesto en global
+export { Core, Engine, Exports, Gemini, Menu, version, init };
 export default (globalThis as any).MTDriveVisionGemini;
