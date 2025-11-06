@@ -1,22 +1,25 @@
 /**
  * =========================================================
- *  DV_Exports.ts — MT_DRIVE_VISION
- *  Corrige tipos y usa RunMode enum
+ *  DV_Exports.ts — Controladores de exportación
  * =========================================================
  */
 
-import { RunMode } from "./types";        // ✅ IMPORTA EL ENUM
-import * as EngineModule from "./DV_Engine";  // asegúrate que existe y exporta run()
-import { logger } from "./utils/logger";  // opcional si usas logger, si no, usa console
+import { RunMode, Config } from "./types";
+import * as EngineModule from "./DV_Engine";
+
+// Config por defecto (ajústalo a tu entorno real)
+const defaultConfig: Config = {
+  ROOT_PATH: "MT_DOCS_2025/MT_INVENTARIO_MENAJE_2025",
+  SHEET_ID: "10DvT6jtLCEUbq2Utrq0qBUY9fBVP36Hc93aBCqNlaVc",
+};
 
 // =========================================================
-// EXPORTADORES PRINCIPALES
+// FUNCIONES PRINCIPALES
 // =========================================================
-
 export function runFullExport() {
   try {
     console.info("🔄 Iniciando ejecución completa (FULL)...");
-    EngineModule.run(RunMode.FULL);  // ✅ usa enum, NO string
+    EngineModule.run(RunMode.FULL, defaultConfig);
     console.info("✅ Exportación completa finalizada.");
   } catch (error) {
     console.error("❌ Error en exportación FULL:", error);
@@ -26,7 +29,7 @@ export function runFullExport() {
 export function runDeltaExport() {
   try {
     console.info("⚙️ Iniciando ejecución incremental (DELTA)...");
-    EngineModule.run(RunMode.DELTA);  // ✅ usa enum, NO string
+    EngineModule.run(RunMode.DELTA, defaultConfig);
     console.info("✅ Exportación incremental completada.");
   } catch (error) {
     console.error("❌ Error en exportación DELTA:", error);
@@ -34,12 +37,25 @@ export function runDeltaExport() {
 }
 
 // =========================================================
-// EXPORTACIÓN GLOBAL
+// RETROCOMPATIBILIDAD (DV_Menu, etc.)
 // =========================================================
+export const runFull = runFullExport;
+export const runDelta = runDeltaExport;
+export const openSummary = EngineModule.openSummary;
+export const exportXLSX = EngineModule.exportXLSX;
+export const exportPDF = EngineModule.exportPDF;
 
+// =========================================================
+// EXPORT GLOBAL
+// =========================================================
 export const DV_Exports = {
   runFullExport,
   runDeltaExport,
+  runFull,
+  runDelta,
+  openSummary,
+  exportXLSX,
+  exportPDF,
 };
 
 export default DV_Exports;
