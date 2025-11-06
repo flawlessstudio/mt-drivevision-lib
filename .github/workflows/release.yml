@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write  # necesario para crear tags y releases
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 📦 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # necesitamos el historial para tags
+
+      - name: 🧩 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 🔎 Leer mensaje del último commit
+        id: msg
+        run: |
+          MSG="$(git log -1 --pretty=%B | head -n1)"
+          echo "message=$MSG" >> $GITHUB_OUTPUT
+          echo "Último commit: $MSG"
+
+      - name: 🚦 Detectar si es release trigger
+        id: trigger
+        run: |
+          MSG="${{ steps.msg.outputs.message }}"
+          # default bump
+          BUMP="patch"
+          if echo "$MSG" | grep -Eiq '^release:major'; then BUMP="major"; fi
+          if echo "$MSG" | grep -Eiq '^release:minor'; then BUMP="minor"; fi
+          if echo "$MSG" | grep -Eiq '^release:patch'; then BUMP="patch"; fi
+
+          if echo "$MSG" | grep -Eiq '^(release:|build:)'; then
+            echo "trigger=true"  >> $GITHUB_OUTPUT
+            echo "bump=$BUMP"    >> $GITHUB_OUTPUT
+            echo "✅ Release trigger detectado: $BUMP"
+          else
+            echo "trigger=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No es release trigger. Saliendo."
+          fi
+
+      - name: ⏭️ Salir si no es release
+        if: steps.trigger.outputs.trigger != 'true'
+        run: exit 0
+
+      - name: 📥 Install deps
+        run: npm ci
+
+      - name: 🔍 Type check
+        run: npx tsc --noEmit
+
+      - name: 🏗 Build
+        run: npx tsc
+
+      - name: 🧾 Configurar Git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: 🔢 Bump de versión y tag
+        id: bump
+        env:
+          BUMP: ${{ steps.trigger.outputs.bump }}
+        run: |
+          # npm version crea commit y tag automáticamente
+          NEW_TAG="$(npm version $BUMP -m "chore(release): v%s")"
+          echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "🎯 Nuevo tag: $NEW_TAG"
+
+      - name: ⬆️ Push commit y tags
+        run: |
+          git push origin HEAD:main --follow-tags
+
+      - name: 🏷️ Crear GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.tag }}
+          name: ${{ steps.bump.outputs.tag }}
+          body: |
+            Automated release for ${{ steps.bump.outputs.tag }}.
+            - Trigger: `${{ steps.msg.outputs.message }}`
+            - Build: TypeScript compiled to `/dist`.
+          files: |
+            dist/**/*
