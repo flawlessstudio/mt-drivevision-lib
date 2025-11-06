@@ -1,0 +1,76 @@
+name: Assistant Ops
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  apply_patch:
+    if: contains(github.event.comment.body, 'ASSISTANT_APPLY_PATCH')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.issue.pull_request.head.sha || 'main' }}
+          fetch-depth: 0
+
+      - name: Extract patch block from comment
+        id: getpatch
+        run: |
+          python - << 'PY'
+import os, re, sys
+body = os.environ['COMMENT']
+m = re.search(r'```patch\\n(.*?)\\n```', body, re.S)
+if not m:
+    print("::error::No se encontró bloque ```patch``` en el comentario"); sys.exit(1)
+open('assistant.patch','w').write(m.group(1))
+print("patch=assistant.patch")
+PY
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+
+      - name: Apply patch
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b assistant/patch-${{ github.run_id }}
+          git apply assistant.patch
+          git status
+          git add -A
+          git commit -m "assistant: apply patch ${{ github.run_id }}"
+
+      - name: Node setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install & typecheck
+        run: |
+          npm ci
+          npx tsc --noEmit
+
+      - name: Build
+        run: npx tsc
+
+      - name: Push branch
+        run: git push origin HEAD
+
+      - name: Open PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {data: pr} = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: context.ref.replace('refs/heads/',''),
+              base: 'main',
+              title: 'Assistant patch ' + context.runId,
+              body: 'Patch aplicado automáticamente.'
+            });
+            core.notice(`PR: ${pr.html_url}`);
