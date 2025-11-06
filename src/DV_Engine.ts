@@ -1,6 +1,6 @@
 /**
  * =========================================================
- *  DV_Engine.ts — Núcleo de ejecución
+ *  DV_Engine.ts — Núcleo de ejecución del sistema
  * =========================================================
  */
 
@@ -10,8 +10,7 @@ export function run(mode: RunMode, config: Config) {
   console.info(`▶️ Ejecutando modo: ${mode}`);
   console.info(`📂 Ruta: ${config.ROOT_PATH}`);
   console.info(`📄 Hoja: ${config.SHEET_ID}`);
-
-  // ... tu lógica real aquí ...
+  // TODO: Implementa la lógica real de sincronización aquí
 }
 
 export function openSummary() {
@@ -19,16 +18,13 @@ export function openSummary() {
 }
 
 export function exportXLSX() {
-  console.info("📦 Exportando XLSX...");
+  console.info("📦 Exportando a XLSX...");
 }
 
 export function exportPDF() {
-  console.info("🧾 Exportando PDF...");
+  console.info("🧾 Exportando a PDF...");
 }
 
-// =========================================================
-// Export principal del módulo
-// =========================================================
 export const EngineModule = {
   run,
   openSummary,
