@@ -1,17 +1,46 @@
 /**
- * DV_Menu.ts — menú de UI en Sheets.
+ * =========================================================
+ *  DV_Menu.ts — Control del menú principal
+ * =========================================================
  */
-import { runFull, runDelta, openSummary, exportXLSX, exportPDF } from "./DV_Exports";
 
-export function onOpen(): void {
-  const ui = SpreadsheetApp.getUi();
-  ui.createMenu("DriveVision")
-    .addItem("🔄 Reconstrucción completa", "runFull")
-    .addItem("⚡ Actualización rápida", "runDelta")
-    .addSeparator()
-    .addItem("📊 Abrir Dashboard", "openSummary")
-    .addSeparator()
-    .addItem("⬇️ Exportar a XLSX", "exportXLSX")
-    .addItem("🧾 Exportar Dashboard a PDF", "exportPDF")
-    .addToUi();
+import {
+  runFull,
+  runDelta,
+  openSummary,
+  exportXLSX,
+  exportPDF,
+} from "./DV_Exports";
+
+export function renderMenu() {
+  console.info("🧭 Renderizando menú MT_DriveVision...");
+  console.table([
+    { acción: "Ejecución completa", método: "runFull()" },
+    { acción: "Ejecución incremental", método: "runDelta()" },
+    { acción: "Abrir resumen", método: "openSummary()" },
+    { acción: "Exportar XLSX", método: "exportXLSX()" },
+    { acción: "Exportar PDF", método: "exportPDF()" },
+  ]);
+}
+
+export function onUserSelect(action: string) {
+  switch (action) {
+    case "FULL":
+      runFull();
+      break;
+    case "DELTA":
+      runDelta();
+      break;
+    case "SUMMARY":
+      openSummary();
+      break;
+    case "XLSX":
+      exportXLSX();
+      break;
+    case "PDF":
+      exportPDF();
+      break;
+    default:
+      console.warn("⚠️ Acción desconocida:", action);
+  }
 }
