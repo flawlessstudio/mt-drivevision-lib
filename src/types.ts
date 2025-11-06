@@ -1,5 +1,5 @@
 // =========================================================
-// types.ts — Tipos globales de la librería
+// types.ts — Tipos globales
 // =========================================================
 
 export enum RunMode {
