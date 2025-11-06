@@ -7,37 +7,28 @@
 import { RunMode, Config } from "./types";
 import * as EngineModule from "./DV_Engine";
 
-// Config por defecto (ajústalo a tu entorno real)
 const defaultConfig: Config = {
   ROOT_PATH: "MT_DOCS_2025/MT_INVENTARIO_MENAJE_2025",
   SHEET_ID: "10DvT6jtLCEUbq2Utrq0qBUY9fBVP36Hc93aBCqNlaVc",
 };
 
 // =========================================================
-// FUNCIONES PRINCIPALES
+// MODO FULL / DELTA
 // =========================================================
 export function runFullExport() {
-  try {
-    console.info("🔄 Iniciando ejecución completa (FULL)...");
-    EngineModule.run(RunMode.FULL, defaultConfig);
-    console.info("✅ Exportación completa finalizada.");
-  } catch (error) {
-    console.error("❌ Error en exportación FULL:", error);
-  }
+  console.info("🔄 Iniciando ejecución completa (FULL)...");
+  EngineModule.run(RunMode.FULL, defaultConfig);
+  console.info("✅ Exportación completa finalizada.");
 }
 
 export function runDeltaExport() {
-  try {
-    console.info("⚙️ Iniciando ejecución incremental (DELTA)...");
-    EngineModule.run(RunMode.DELTA, defaultConfig);
-    console.info("✅ Exportación incremental completada.");
-  } catch (error) {
-    console.error("❌ Error en exportación DELTA:", error);
-  }
+  console.info("⚙️ Iniciando ejecución incremental (DELTA)...");
+  EngineModule.run(RunMode.DELTA, defaultConfig);
+  console.info("✅ Exportación incremental finalizada.");
 }
 
 // =========================================================
-// RETROCOMPATIBILIDAD (DV_Menu, etc.)
+// RETROCOMPATIBILIDAD (para DV_Menu / Apps Script)
 // =========================================================
 export const runFull = runFullExport;
 export const runDelta = runDeltaExport;
